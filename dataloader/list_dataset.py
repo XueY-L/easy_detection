@@ -96,8 +96,9 @@ def get_all_datasets():
                 val_datasets.append(val_dataset)
 
         elif data_format == 'COCO':
+            # 不用管dataset_item.voc_root，在CocoDataset里直接改了root_dir
             if hasattr(dataset_item, 'train_split'):
-                train_dataset = CocoDataset(dataset_item.voc_root, 
+                train_dataset = CocoDataset(dataset_item.voc_root,
                         dataset_item.train_split, transforms=train_transform)
                 train_datasets.append(train_dataset)
 

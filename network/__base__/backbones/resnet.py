@@ -1,7 +1,9 @@
 from typing import OrderedDict
 from torchvision.ops import misc as misc_nn_ops
 # from torchvision.models import resnet50, resnet101, resnet152
-from torchvision.models.resnet import Bottleneck, Any, ResNet, load_state_dict_from_url, model_urls
+from torchvision.models.resnet import Bottleneck, Any, ResNet, model_urls
+from torch.hub import load_state_dict_from_url
+
 import torch
 
 class ResNet_Features(ResNet):

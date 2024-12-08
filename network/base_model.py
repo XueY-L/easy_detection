@@ -46,7 +46,7 @@ class BaseModel(torch.nn.Module):
                     device_ids=[opt.local_rank], output_device=opt.local_rank)
             # self.detector = torch.nn.parallel.DistributedDataParallel(self.detector, device_ids=[opt.local_rank], output_device=opt.local_rank)
 
-        self._optimizer = get_optimizer(self.detector, self.config)
+        self._optimizer = get_optimizer([self.detector], self.config)
         self._scheduler = get_scheduler(self.optimizer, self.config)
 
         self.avg_meters = ExponentialMovingAverage(0.95)

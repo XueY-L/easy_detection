@@ -1,0 +1,16 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "frcnn",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/yuanxue/easy_detection/train.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "configs/faster_rcnn/faster_rcnn_coco.yml"]   // 执行脚本的附加参数，默认生成是没有的
+        }
+    ]
+}

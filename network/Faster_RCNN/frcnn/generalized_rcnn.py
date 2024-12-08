@@ -45,7 +45,7 @@ class GeneralizedRCNN(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         original_image_sizes = [img.shape[-2:] for img in images]
         images, targets = self.transform(images, targets)
-        features = self.backbone(images.tensors)
+        features = self.backbone(images.tensors)  # images.tensors: torch.Size([1, 3, 1088, 800])
         if isinstance(features, torch.Tensor):
             features = OrderedDict([(0, features)])
         proposals, proposal_losses = self.rpn(images, features, targets)

@@ -1,6 +1,15 @@
+'''
+python train.py --config configs/faster_rcnn/faster_rcnn_coco.yml
+
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 ./dist_train.sh 8 --config configs/faster_rcnn/faster_rcnn_coco_dist.yml
+
+python -m torch.distributed.launch --nproc_per_node=8 train.py --config configs/faster_rcnn/faster_rcnn_coco_dist.yml
+'''
+
 # encoding = utf-8
 import os
 import time
+from pprint import pprint
 
 import torch
 import torch.distributed as dist
@@ -48,13 +57,13 @@ with torch.no_grad():
         # 初始化训练的meta信息
         meta = load_meta(new=True)
         save_meta(meta)
-
+        
     # 初始化模型
     Model = get_model(config.MODEL.NAME)
-    model = Model(config)
+    model = Model(config)  # 这一步里构造了opt.epochs
 
     # 转到GPU
-    # model = model.to(device=opt.device)
+    model = model.to(device=opt.device)
 
     if opt.load:
         load_epoch = model.load(opt.load)
@@ -102,8 +111,9 @@ with torch.no_grad():
 #try:
 if __name__ == '__main__':
     eval_result = ''
-
-    for epoch in range(start_epoch, opt.epochs + 1):
+    
+    # for epoch in range(start_epoch, opt.epochs + 1):
+    for epoch in range(1):
         if is_distributed():
             train_dataloader.sampler.set_epoch(epoch)
         for iteration, sample in enumerate(train_dataloader):
@@ -140,7 +150,7 @@ if __name__ == '__main__':
             # 显示进度条
             msg = f'lr:{round(lr, 6) : .6f} (loss) {str(model.avg_meters)} ETA: {format_time(remaining)}'
             if is_first_gpu():
-                progress_bar(iteration, len(train_dataloader), pre_msg, msg)
+                progress_bar(iteration, len(train_dataloader), pre_msg, msg)  # 打印训练进度
                 # print(pre_msg, msg)
 
                 if global_step % 1000 == 0:  # 每1000个step将loss写到tensorboard
@@ -148,6 +158,7 @@ if __name__ == '__main__':
                 # 训练时每100个step记录一下loss
                 if global_step % 100 == 0:
                     logger.info(f'step: {global_step} (loss) '+ str(model.avg_meters))
+            break
 
         if is_first_gpu():
             # 记录训练日志
@@ -167,7 +178,7 @@ if __name__ == '__main__':
         if scheduler is not None:
             scheduler.step()
 
-        #if is_distributed():
+        # if is_distributed():
         #    dist.barrier()
 
     if is_distributed():

@@ -31,7 +31,7 @@ if train_dataset is None:
     train_dataloader = None
 else:
     sampler = DistributedSampler(train_dataset) if is_distributed() else None
-    shuffle = not is_distributed() 
+    shuffle = not is_distributed()  # DDP就不用shuffle，因为sampler已经干过了
 
     train_dataloader = torch.utils.data.DataLoader(train_dataset,
         shuffle=shuffle,

@@ -54,6 +54,7 @@ class Model(BaseModel):
             # 默认是带fpn的resnet50
             self._detector = fasterrcnn_resnet50_fpn(pretrained=False, **kargs)
 
+            # self.detector和self._detector是一个东西
             in_features = self.detector.roi_heads.box_predictor.cls_score.in_features
 
             # replace the pre-trained head with a new one
@@ -74,7 +75,7 @@ class Model(BaseModel):
         else:
             raise NotImplementedError(f'no such backbone: {config.MODEL.BACKBONE}')
 
-        self.init_common()
+        self.init_common()  # opt.epochs在这里设置
 
 
     def update(self, sample, *arg):
@@ -96,7 +97,7 @@ class Model(BaseModel):
             if len(bboxes[b]) == 0:  # 没有bbox，不更新参数
                 return {}
 
-        #image = image.to(opt.device)
+        # image = image.to(opt.device)
         bboxes = [bbox.to(opt.device).float() for bbox in bboxes]
         labels = [label.to(opt.device).float() for label in labels]
         image = list(im.to(opt.device) for im in image)

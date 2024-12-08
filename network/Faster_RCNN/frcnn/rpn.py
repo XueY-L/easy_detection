@@ -137,7 +137,7 @@ class RPNHead(nn.Module):
         num_anchors (int): number of anchors to be predicted
     """
 
-    def __init__(self, in_channels, num_anchors):
+    def __init__(self, in_channels, num_anchors):  # num_anchors=3
         super(RPNHead, self).__init__()
         self.conv = nn.Conv2d(
             in_channels, in_channels, kernel_size=3, stride=1, padding=1
@@ -273,7 +273,18 @@ class RegionProposalNetwork(torch.nn.Module):
         matched_gt_boxes = []
         for anchors_per_image, targets_per_image in zip(anchors, targets):
             gt_boxes = targets_per_image["boxes"]
+            # box_similarity计算即计算boxes和anchors的iou
+            # gt_boxes: M × 4
+            # anchors_per_image: N × 4
+            # 返回结果为M × N的矩阵，矩阵中每个值代表对应gt_boxes和anchor的iou
             match_quality_matrix = self.box_similarity(gt_boxes, anchors_per_image)
+            # proposal_matcher实现每个anchor和gt_box的匹配工作
+            # 输入为M × N的iou矩阵match_quality_matrix
+            # 对于N个anchors，每个anchor和M个gt_box的iou大于high_threshold，认为是positive
+            # 并将M个gt_boxes中iou最大的box的idx匹配到第N个anchor
+            # 当M个gt_box的iou均小于low_threshold，认为是negtive，赋值-1
+            # 其余介于high_threshold和low_threshold被认为是ignore，赋值-2
+            # 因此得到的matched_idxs是一个N维的tensor，值包含idx/-1/-2
             matched_idxs = self.proposal_matcher(match_quality_matrix)
             # get the targets corresponding GT for each proposal
             # NB: need to clamp the indices because we can have a single
@@ -284,11 +295,11 @@ class RegionProposalNetwork(torch.nn.Module):
             labels_per_image = matched_idxs >= 0
             labels_per_image = labels_per_image.to(dtype=torch.float32)
 
-            # Background (negative examples)
+            # Background (negative examples) # Background被赋值为0
             bg_indices = matched_idxs == self.proposal_matcher.BELOW_LOW_THRESHOLD
             labels_per_image[bg_indices] = 0
 
-            # discard indices that are between thresholds
+            # discard indices that are between thresholds  ignored被赋值为-1
             inds_to_discard = matched_idxs == self.proposal_matcher.BETWEEN_THRESHOLDS
             labels_per_image[inds_to_discard] = -1
 
@@ -398,27 +409,30 @@ class RegionProposalNetwork(torch.nn.Module):
         """
         # RPN uses all feature maps that are available
         features = list(features.values())
+        # 返回每个anchor的分类结果、坐标偏移量，其中分类结果表示有物体的概率？（用作前景、背景、忽略），坐标偏移量是对应anchor的，后面会和anchor坐标结合计算坐标绝对值
         objectness, pred_bbox_deltas = self.rpn_head(features)
-        anchors = self.anchor_generator(images, features)
+        anchors = self.anchor_generator(images, features)  # 返回的是每个anchor的坐标 [torch.Size([217413, 4])]
 
         num_images = len(anchors)
-        num_anchors_per_level = [o[0].numel() for o in objectness]
-        objectness, pred_bbox_deltas = \
-            concat_box_prediction_layers(objectness, pred_bbox_deltas)
+        num_anchors_per_level = [o[0].numel() for o in objectness]  # [163200, 40800, 10200, 2550, 663]
+        # objectness和pred_bbox_deltas分别被concat成了tensor, torch.Size([217413, 1]), torch.Size([217413, 4])
+        objectness, pred_bbox_deltas = concat_box_prediction_layers(objectness, pred_bbox_deltas)
         # apply pred_bbox_deltas to anchors to obtain the decoded proposals
-        # note that we detach the deltas because Faster R-CNN do not backprop through
-        # the proposals
+        # note that we detach the deltas because Faster R-CNN do not backprop through the proposals
 
-
+        # 用坐标偏移量deltas和anchor坐标计算，（x1,y1,x2,y2）形式的实际box坐标储存在proposals中
         proposals = self.box_coder.decode(pred_bbox_deltas.detach(), anchors)
-        proposals = proposals.view(num_images, -1, 4)
-
+        proposals = proposals.view(num_images, -1, 4)  # torch.Size([1, 217413, 4])
+        # 过滤proposals，根据score进行排序，将较小的扔掉，再进行nms来处理重叠的proposal
         boxes, scores = self.filter_proposals(proposals, objectness, images.image_sizes, num_anchors_per_level)
 
         losses = {}
         if self.training:
+            # labels[0]: torch.Size([242991]),每个值可以是1/0/-1，1代表positive，0代表negative，-1代表ignore不参与loss计算
+            # matched_gt_boxes: torch.Size([242991, 4])，表示每个anchor对应gt_box的坐标
             labels, matched_gt_boxes = self.assign_targets_to_anchors(anchors, targets)
-            regression_targets = self.box_coder.encode(matched_gt_boxes, anchors)
+            regression_targets = self.box_coder.encode(matched_gt_boxes, anchors) # 我猜是算出gt对于anchor的相对坐标
+            # RPN的两个loss
             loss_objectness, loss_rpn_box_reg = self.compute_loss(
                 objectness, pred_bbox_deltas, labels, regression_targets)
             losses = {

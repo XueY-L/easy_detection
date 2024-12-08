@@ -275,8 +275,8 @@ class RoIHeads(torch.nn.Module):
         if self.training:
             proposals, matched_idxs, labels, regression_targets = self.select_training_samples(proposals, targets)
 
-        box_features = self.roi_align(features, proposals, image_shapes)
-        box_features = self.box_head(box_features)
+        box_features = self.roi_align(features, proposals, image_shapes)  # torch.Size([512, 256, 7, 7])
+        box_features = self.box_head(box_features)  # torch.Size([512, 1024])
         class_logits, box_regression = self.box_predictor(box_features)
 
         result, losses = [], {}

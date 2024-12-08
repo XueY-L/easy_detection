@@ -37,25 +37,26 @@ class BackboneWithFPN(nn.Sequential):
             extra_blocks=LastLevelMaxPool(),
         )
         super(BackboneWithFPN, self).__init__(OrderedDict(
-            [("body", body), ("fpn", fpn)]))
+            [("body", body), ("fpn", fpn)]))  # body还是resnet，IntermediateLayerGetter返回forward过程中return_layers层的输出，我猜用作FeaturePyramidNetwork的输入；FeaturePyramidNetwork接收resnet的中间输出，输出字典，每个键值对代表不同尺度的特征图
         self.out_channels = out_channels
 
 
 def resnet_fpn_backbone(backbone_name, pretrained, norm_layer=misc_nn_ops.FrozenBatchNorm2d):
-    backbone = resnet.__dict__[backbone_name](
+    backbone = resnet.__dict__[backbone_name](  # 就是个resnet
         pretrained=pretrained,
         #norm_layer=torch.nn.SyncBatchNorm)
         norm_layer=norm_layer)
+
     # freeze layers
-    for name, parameter in backbone.named_parameters():
+    for name, parameter in backbone.named_parameters():  # 为什么冻结layer2前面的？
         if 'layer2' not in name and 'layer3' not in name and 'layer4' not in name:
             parameter.requires_grad_(False)
 
     return_layers = {'layer1': 0, 'layer2': 1, 'layer3': 2, 'layer4': 3}
 
-    in_channels_stage2 = backbone.inplanes // 8
-    in_channels_list = [
-        in_channels_stage2,
+    in_channels_stage2 = backbone.inplanes // 8  # backbone.inplanes是fc的输入维度
+    in_channels_list = [  # 以res50为例，是四个layer的输出维度
+        in_channels_stage2,  # 256
         in_channels_stage2 * 2,
         in_channels_stage2 * 4,
         in_channels_stage2 * 8,
